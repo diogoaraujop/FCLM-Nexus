@@ -2,7 +2,7 @@
 
 Tampermonkey tool for importing an Excel rota, updating unclassified FCLM segments, and downloading compact results automatically.
 
-**Version 0.3.6** · **36 offline checks passing**
+**Version 0.3.7** · **37 offline checks passing**
 
 [Install userscript](https://raw.githubusercontent.com/diogoaraujop/FCLM-Nexus/main/src/fclm-nexus.user.js) · [User guide](docs/USER_GUIDE.md) · [Testing](docs/TESTING.md) · [Changelog](docs/CHANGELOG.md)
 
@@ -58,3 +58,7 @@ See [engineering notes](docs/NOTES.md) for implementation assumptions. This brow
 ## Import error handling — v0.3.6
 
 Invalid populated employee IDs and unsupported nonblank roles are skipped without blocking valid rows. The loaded-row status shows the skipped error count. Each error includes its physical Excel row, affected column and reason. The Import errors section is appended after all run results, including failures and Stop, in the automatic timestamped download. Choosing another workbook or worksheet clears prior errors. If no valid rows remain, Run is disabled and an import error report downloads immediately. Blank rows, rows without IDs and blank assignment roles retain their existing handling.
+
+## Processing errors — v0.3.7
+
+A network/read/schema error skips the affected employee/station request and continues with the next station and employee. Malformed segment data skips that segment. Error details are appended under Processing errors after the segment results, followed by any Import errors. There is no automatic retry. Explicit authentication failures and user Stop still terminate processing. A failed or unconfirmed write may have committed: inspect before retrying. Connection-wide failures cannot be fixed by skipping records.

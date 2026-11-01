@@ -6,7 +6,7 @@ Run from the repository root with Node.js:
 
     node tests/run.cjs
 
-Expected: 36 checks passed and exit code 0. Coverage includes calendar/DST handling, eligibility, payload target, headers and roles, duplicate row ordering, direct processing, compact output, verification failures, authentication/cancellation paths, automatic downloads and scroll position preservation.
+Expected: 37 checks passed and exit code 0. Coverage includes calendar/DST handling, eligibility, payload target, headers and roles, duplicate row ordering, direct processing, compact output, verification failures, authentication/cancellation paths, automatic downloads and scroll position preservation.
 
 The suite uses synthetic values and mocked browser/SheetJS interfaces. It does not test the real Excel binary decoder, rendered portal CSS, browser download permissions, or live API compatibility.
 
@@ -27,8 +27,12 @@ Stop and disable the current script, restore a previously accepted version, then
 
 ## Validation record
 
-2026-11-01: 36 offline checks passed via the bundled Node runtime. No live FCLM reads or writes performed during validation. Browser rendering, actual Excel decoding and live acceptance remain pending. Record future checks with version/date/tester/results and unresolved issues. Use synthetic or sanitized data in committed fixtures.
+2026-11-01: 37 offline checks passed via the bundled Node runtime. No live FCLM reads or writes performed during validation. Browser rendering, actual Excel decoding and live acceptance remain pending. Record future checks with version/date/tester/results and unresolved issues. Use synthetic or sanitized data in committed fixtures.
 
 ## Import error handling — v0.3.6
 
 Invalid populated employee IDs and unsupported nonblank roles are skipped without blocking valid rows. The loaded-row status shows the skipped error count. Each error includes its physical Excel row, affected column and reason. The Import errors section is appended after all run results, including failures and Stop, in the automatic timestamped download. Choosing another workbook or worksheet clears prior errors. If no valid rows remain, Run is disabled and an import error report downloads immediately. Blank rows, rows without IDs and blank assignment roles retain their existing handling.
+
+## Processing errors — v0.3.7
+
+A network/read/schema error skips the affected employee/station request and continues with the next station and employee. Malformed segment data skips that segment. Error details are appended under Processing errors after the segment results, followed by any Import errors. There is no automatic retry. Explicit authentication failures and user Stop still terminate processing. A failed or unconfirmed write may have committed: inspect before retrying. Connection-wide failures cannot be fixed by skipping records.

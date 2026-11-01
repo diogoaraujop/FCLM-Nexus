@@ -50,6 +50,15 @@ async function duplicateWorkflow(){
  await c.processEmployees(people,'2026-01-15',async(p,write)=>{if(write){assigned=true;writes.push(p.newJobRole);return;}read++;return {report:{functionSegments:[{...segment,processName:assigned?'Picking Kaizen':null}]}};},()=>{});
  assert.equal(read,7);assert.deepEqual(writes,['Picking Kaizen']);
 }
+
+async function runtimeErrors(){
+ let calls=[],lines=[];const people=[{...person,row:4},{...person,id:'456',name:'Next Person',row:5}];
+ await c.processEmployees(people,'2026-01-15',async(p)=>{calls.push(p.employeeId+':'+p.warehouseId);if(p.employeeId==='123')throw Error('NetworkError when attempting to fetch resource.');return {report:{functionSegments:[]}};},line=>lines.push(line));
+ assert.ok(calls.includes('456:DIG1'));assert.ok(calls.includes('456:NXU7'));assert.match(lines.slice(-3).join('\n'),/Processing errors \(2\)/);assert.match(lines.at(-1),/Excel row 4.*NetworkError.*skipped/);
+ let writes=0;lines=[];
+ await c.processEmployees([person],'2026-01-15',async(p,write)=>{if(write){writes++;return;}return {report:{functionSegments:[{...segment,startTime:undefined},{...segment,processName:'Already assigned'}]}};},line=>lines.push(line));
+ assert.equal(writes,0);assert.equal(lines.filter(line=>line.includes('Already assigned')).length,2);assert.match(lines.at(-1),/Invalid timestamp/);
+}
 async function browserWriteResponse(reply){
  const ids=['date','run','stop','export','log','panel','close','import','file','sheet','sheet-label','status'];
  const elements=Object.fromEntries(ids.map(id=>[id,{value:'',disabled:false,hidden:id==='panel',files:[],textContent:'',focus(){},click(){},append(){},replaceChildren(){}}]));
@@ -59,4 +68,4 @@ async function browserWriteResponse(reply){
  if(reply.includes('false'))assert.match(elements.log.textContent,/failed: Rejected/);else assert.match(elements.log.textContent,/None → Picking Kaizen \(updated\)/);
 }
 
-(async()=>{await duplicateWorkflow();passed++;console.log('PASS duplicate rows processed in order without overwriting classified segments');for(const reply of ['','{"success":true}','{"success":false,"message":"Rejected"}']){await browserWriteResponse(reply);passed++;console.log('PASS browser write response '+(reply||'empty'));}for(const mode of ['normal','norole','unknown','writefail','fatal','stopped','unconfirmed']){await scenario(mode);passed++;console.log('PASS direct workflow '+mode);}console.log(passed+' checks passed');})().catch(error=>{console.error(error);process.exitCode=1;});
+(async()=>{await runtimeErrors();passed++;console.log('PASS network and malformed segment errors skipped with footer');await duplicateWorkflow();passed++;console.log('PASS duplicate rows processed in order without overwriting classified segments');for(const reply of ['','{"success":true}','{"success":false,"message":"Rejected"}']){await browserWriteResponse(reply);passed++;console.log('PASS browser write response '+(reply||'empty'));}for(const mode of ['normal','norole','unknown','writefail','fatal','stopped','unconfirmed']){await scenario(mode);passed++;console.log('PASS direct workflow '+mode);}console.log(passed+' checks passed');})().catch(error=>{console.error(error);process.exitCode=1;});

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.7 — 2026-11-01
+
+Catch retrieval/network/schema errors per employee/station and malformed data per segment. Continue processing other records; append Processing errors to the log footer. Preserve explicit authentication and Stop termination. Added regression for network failures and invalid timestamps; 37 checks pass.
+
 ## 0.3.6 — 2026-11-01
 
 Skip invalid employee IDs and unsupported nonblank roles during import. Preserve error details and append them to the end of automatically downloaded results. Download an import-only report when no valid rows remain. Clear errors on workbook/worksheet replacement. 36 offline checks pass, including error footer handling.

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name FCLM Nexus
 // @namespace fclm-nexus
-// @version 0.3.6
+// @version 0.3.7
 // @require https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js
 // @match https://fclm-portal.amazon.com/reports/ppaTimeOnTask*
 // @grant none
@@ -43,37 +43,41 @@ function eligible(s){return s.processName===null;}
 function key(s){return JSON.stringify([s.startTime,s.endTime,s.processId,s.processName]);}
 
 async function processEmployees(people,date,request,say,isStopped=()=>false,visibleEmployees=[]){
- range(date);let total=0,updated=0,failed=0;
+ range(date);let total=0,updated=0,failed=0;const errors=[];
+ function record(employee,station,detail){failed++;errors.push((employee.row?'Excel row '+employee.row+' · ':'')+(employee.name||employee.id)+' · '+station+' · '+detail);}
  const imported=new Set(people.map(person=>person.id));
+ try{
  for(const person of visibleEmployees)if(!imported.has(person.id))say('\n'+(person.name||person.id)+'\nNot in imported rota');
  for(const employee of people){
-  if(isStopped())break;
-  say('\n'+(employee.name||employee.id));let instance=0;
+  if(isStopped())break;say('\n'+(employee.name||employee.id));let instance=0;
   for(const station of ['DIG1','NXU7']){
-   if(isStopped())break;
-   const data=await request(body(employee,date,station),false);
-   const list=segments(data);if(!list.length)say(station+': no segments');
+   if(isStopped())break;let list;
+   try{list=segments(await request(body(employee,date,station),false));}
+   catch(error){record(employee,station,'read failed: '+error.message+' — skipped');say(station+' — read failed; skipped');if(error.fatal||isStopped())throw error;continue;}
+   if(!list.length)say(station+': no segments');
    for(const segment of list){
-    if(isStopped())break;total++;instance++;
-    const line=instance+'. '+station+' · '+(segment.processName??'None');
-    if(!eligible(segment)){say(line);continue;}
-    if(!employee.role){say(line+' — not updated: no rota role');continue;}
-    if(!employee.process){say(line+' — not updated: unsupported role '+employee.role);continue;}
-    if(!stamp(segment.startTime))throw Error('Missing segment start for '+employee.id);
+    if(isStopped())break;total++;instance++;let line=instance+'. '+station;
     try{
+     if(!segment||typeof segment!=='object')throw Error('Invalid segment data');
+     line+=' · '+(segment.processName??'None');
+     if(!eligible(segment)){say(line);continue;}
+     if(!employee.role){say(line+' — not updated: no rota role');continue;}
+     if(!employee.process){say(line+' — not updated: unsupported role '+employee.role);continue;}
+     if(!stamp(segment.startTime))throw Error('Missing segment start');
      await request(body(employee,date,station,segment),true);
-     if(isStopped()){say(line+' — result unknown (stopped)');break;}
+     if(isStopped()){say(line+' — result unknown (stopped)');record(employee,station,'segment '+instance+': write result unknown after Stop');break;}
      const after=await request(body(employee,date,'NXU7'),false);
-     const match=segments(after).some(current=>current.startTime===segment.startTime && (current.endTime||'')===(segment.endTime||'') && String(current.processId)===employee.process);
+     const match=segments(after).some(current=>current&&current.startTime===segment.startTime && (current.endTime||'')===(segment.endTime||'') && String(current.processId)===employee.process);
      if(match){updated++;say(line+' → '+employee.role+' (updated)');}
-     else{failed++;say(line+' — update not confirmed');}
+     else{record(employee,station,'segment '+instance+': update not confirmed');say(line+' — update not confirmed');}
     }catch(error){
-     failed++;say(line+' — failed: '+error.message);
+     record(employee,station,'segment '+instance+': '+error.message+' — skipped; inspect any uncertain write before retrying');say(line+' — failed: '+error.message);
      if(error.fatal||isStopped())throw error;
     }
    }
   }
  }
+ }finally{if(errors.length){say('\nProcessing errors ('+errors.length+')');for(const error of errors)say(error);}}
  return {total,updated,failed};
 }
 function visibleEmployees(){
