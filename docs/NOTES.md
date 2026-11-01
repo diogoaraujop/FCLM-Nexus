@@ -27,3 +27,7 @@ The launcher depends on the portal's native DOM. Browser-only Excel decoding and
 ## Change discipline
 
 Make a focused change, add meaningful regression coverage for affected behavior, run node tests/run.cjs, inspect the diff, and repeat affected browser acceptance cases. Update the metadata version and changelog for script changes. Preserve the previous accepted version for code rollback; data corrections use normal portal controls.
+
+## Import error handling — v0.3.6
+
+Invalid populated employee IDs and unsupported nonblank roles are skipped without blocking valid rows. The loaded-row status shows the skipped error count. Each error includes its physical Excel row, affected column and reason. The Import errors section is appended after all run results, including failures and Stop, in the automatic timestamped download. Choosing another workbook or worksheet clears prior errors. If no valid rows remain, Run is disabled and an import error report downloads immediately. Blank rows, rows without IDs and blank assignment roles retain their existing handling.

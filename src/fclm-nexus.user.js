@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name FCLM Nexus
 // @namespace fclm-nexus
-// @version 0.3.5
+// @version 0.3.6
 // @require https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js
 // @match https://fclm-portal.amazon.com/reports/ppaTimeOnTask*
 // @grant none
@@ -20,21 +20,21 @@ function workbookRows(workbook,sheetName,library){
  const rows=library.utils.sheet_to_json(sheet,{header:1,range:{s:{r:0,c:0},e:{r:Math.max(4,bounds.e.r),c:7}},defval:'',raw:true,blankrows:true});
  const norm=value=>String(value??'').replace(/\u00a0/g,' ').trim();
  const header=rows.slice(0,20).findIndex(row=>/^employee\s*id$/i.test(norm(row[3])));
- const first=header<0?4:header+1,out=[],seen=new Set();
+ const first=header<0?4:header+1,out=[],seen=new Set(),errors=[];
  const summary={firstRow:first+1,missingId:0,missingRole:0,blank:0,duplicates:0};
  for(let i=first;i<rows.length;i++){
   const row=rows[i];if(!row.some(value=>norm(value))){summary.blank++;continue;}
   const id=norm(row[3]),role=norm(row[7]);
   if(!id){summary.missingId++;continue;}
-  if(!/^\d+$/.test(id))throw Error('Excel row '+(i+1)+': invalid employee ID in D');
+  if(!/^\d+$/.test(id)){errors.push('Excel row '+(i+1)+': invalid employee ID in D ('+id+') — skipped');continue;}
   if(!role)summary.missingRole++;
   const process=Object.keys(roles).find(k=>roles[k].toLowerCase()===role.toLowerCase());
-  // Keep every employee for reporting, even without a mapped assignment role.
+  if(role&&!process){errors.push('Excel row '+(i+1)+': unsupported role in H ('+role+') — skipped');continue;}
+  // Blank roles remain available for segment reporting.
   if(seen.has(id))summary.duplicates++;seen.add(id);
   out.push({id,name:norm(row[1]),role:process?roles[process]:role,process:process||'',row:i+1});
  }
- if(!out.length)throw Error('No employees found: employee IDs must be in column D.');
- out.summary=summary;return out;
+ out.summary=summary;out.errors=errors;return out;
 }
 
 function segments(data){if(!Array.isArray(data?.report?.functionSegments))throw Error('Unexpected API response; check login/contract');return data.report.functionSegments;}
@@ -120,10 +120,10 @@ function placeLauncher(){
  if(anchor)anchor.after(launcher);else bar.append(launcher);
 }
 placeLauncher();new MutationObserver(placeLauncher).observe(document.body,{childList:true,subtree:true});
-let busy=false,stopped=false,controller,logs=[],people=[],workbook=null;
+let busy=false,stopped=false,controller,logs=[],people=[],workbook=null,importErrors=[];
 function say(message){logs.push(message);renderReport($('log'),logs.join('\n'));}
-function clearImport(){people=[];$('run').disabled=true;}
-function selectSheet(){clearImport();logs=[];$('log').textContent='';try{people=workbookRows(workbook,$('sheet').value,XLSX);$('status').textContent=people.length+' rota rows loaded';$('run').disabled=false;}catch(error){$('status').textContent=error.message;}}
+function clearImport(){people=[];importErrors=[];$('run').disabled=true;}
+function selectSheet(){clearImport();logs=[];$('log').textContent='';try{people=workbookRows(workbook,$('sheet').value,XLSX);importErrors=people.errors||[];$('status').textContent=people.length+' rota rows loaded'+(importErrors.length?' · '+importErrors.length+' rows skipped':'');$('run').disabled=!people.length;if(!people.length){say('No valid employee rows.');appendImportErrors();downloadResults();}}catch(error){$('status').textContent=error.message;}}
 $('import').onclick=()=>{if(!busy){$('file').value='';$('file').click();}};
 $('file').onchange=async()=>{
  const file=$('file').files[0];if(!file||busy)return;clearImport();workbook=null;$('sheet').replaceChildren();$('sheet-label').hidden=true;
@@ -158,8 +158,9 @@ $('run').onclick=async()=>{
  for(const id of ['run','import','sheet','date'])$(id).disabled=true;
  try{await processEmployees(people,$('date').value,request,say,()=>stopped,visibleEmployees());}
  catch(error){say((stopped?'Stopped: ':'Failed: ')+error.message);}
- finally{busy=false;for(const id of ['import','sheet','date'])$(id).disabled=false;$('run').disabled=!people.length;try{downloadResults();}catch(error){say('Automatic download failed: '+error.message);}}
+ finally{appendImportErrors();busy=false;for(const id of ['import','sheet','date'])$(id).disabled=false;$('run').disabled=!people.length;try{downloadResults();}catch(error){say('Automatic download failed: '+error.message);}}
 };
+function appendImportErrors(){if(importErrors.length){say('\nImport errors ('+importErrors.length+')');for(const error of importErrors)say(error);}}
 function downloadResults(){
  const timestamp=new Date().toISOString().replace(/[:.]/g,'-');
  const url=URL.createObjectURL(new Blob([logs.join('\n')],{type:'text/plain;charset=utf-8'}));

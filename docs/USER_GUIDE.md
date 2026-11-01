@@ -2,7 +2,7 @@
 
 ## Prepare the rota
 
-Use the worksheet containing employee rows. Columns: B = name, D = employee ID, H = desired function. Keep an Employee ID header in D within the first 20 rows when possible. Data starts immediately after that header; otherwise row 5 is assumed. Empty rows and rows without IDs are skipped. Invalid populated IDs stop import with the Excel row number.
+Use the worksheet containing employee rows. Columns: B = name, D = employee ID, H = desired function. Keep an Employee ID header in D within the first 20 rows when possible. Data starts immediately after that header; otherwise row 5 is assumed. Empty rows and rows without IDs are skipped. Invalid populated IDs are skipped and recorded with their Excel row number.
 
 Supported H values:
 
@@ -20,7 +20,7 @@ Supported H values:
 | TransOut WaterSpider | 100292 |
 | Transfer Out Kaizen | 100293 |
 
-Role matching ignores case and outer whitespace. Rows without a supported role are still reported, but not updated. Repeated IDs are retained in worksheet order. Import supports .xlsx/.xls up to 20 MB and worksheet extents up to 100,000 data rows.
+Role matching ignores case and outer whitespace. Blank-role rows are reported without updates; unsupported nonblank roles are skipped with an import error. Repeated IDs are retained in worksheet order. Import supports .xlsx/.xls up to 20 MB and worksheet extents up to 100,000 data rows.
 
 ## Run
 
@@ -47,3 +47,7 @@ On completion, failure, or Stop, the script requests a download named fclm-nexus
 - Wrong results or missing roles: check worksheet, D IDs and H functions. Verify the saved file is the one imported.
 - Authentication failure: sign in normally, inspect any uncertain updates, then rerun as appropriate.
 - Failed or unconfirmed update: keep the automatically downloaded report and inspect the normal portal record before retrying.
+
+## Import error handling — v0.3.6
+
+Invalid populated employee IDs and unsupported nonblank roles are skipped without blocking valid rows. The loaded-row status shows the skipped error count. Each error includes its physical Excel row, affected column and reason. The Import errors section is appended after all run results, including failures and Stop, in the automatic timestamped download. Choosing another workbook or worksheet clears prior errors. If no valid rows remain, Run is disabled and an import error report downloads immediately. Blank rows, rows without IDs and blank assignment roles retain their existing handling.

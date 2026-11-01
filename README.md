@@ -2,7 +2,7 @@
 
 Tampermonkey tool for importing an Excel rota, updating unclassified FCLM segments, and downloading compact results automatically.
 
-**Version 0.3.5** · **34 offline checks passing**
+**Version 0.3.6** · **36 offline checks passing**
 
 [Install userscript](https://raw.githubusercontent.com/diogoaraujop/FCLM-Nexus/main/src/fclm-nexus.user.js) · [User guide](docs/USER_GUIDE.md) · [Testing](docs/TESTING.md) · [Changelog](docs/CHANGELOG.md)
 
@@ -31,7 +31,7 @@ Example output using fictional data:
     1. DIG1 · Picking Kaizen
     2. NXU7 · None → Picking Kaizen (updated)
 
-Names come from **B**, employee IDs from **D**, and assigned functions from **H**. The importer detects an Employee ID header in D within the first 20 rows; otherwise it starts at row 5. Missing IDs are skipped. Blank or unsupported roles remain available for reporting but do not produce updates. Duplicate employee rows are processed in Excel order.
+Names come from **B**, employee IDs from **D**, and assigned functions from **H**. The importer detects an Employee ID header in D within the first 20 rows; otherwise it starts at row 5. Missing IDs are skipped. Blank roles remain available for reporting. Unsupported nonblank roles are skipped and recorded as import errors. Duplicate employee rows are processed in Excel order.
 
 ## Behavior
 
@@ -54,3 +54,7 @@ Requires Node.js for offline checks:
 The suite uses synthetic data and mocked browser/SheetJS interfaces. It does not call FCLM. Real Excel binary decoding, portal layout, and live API behavior require the manual checks in [TESTING.md](docs/TESTING.md). No live acceptance is claimed by the offline results.
 
 See [engineering notes](docs/NOTES.md) for implementation assumptions. This browser version was adapted from an earlier Python workflow; the historical script is not part of the published package.
+
+## Import error handling — v0.3.6
+
+Invalid populated employee IDs and unsupported nonblank roles are skipped without blocking valid rows. The loaded-row status shows the skipped error count. Each error includes its physical Excel row, affected column and reason. The Import errors section is appended after all run results, including failures and Stop, in the automatic timestamped download. Choosing another workbook or worksheet clears prior errors. If no valid rows remain, Run is disabled and an import error report downloads immediately. Blank rows, rows without IDs and blank assignment roles retain their existing handling.

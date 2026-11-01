@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.6 — 2026-11-01
+
+Skip invalid employee IDs and unsupported nonblank roles during import. Preserve error details and append them to the end of automatically downloaded results. Download an import-only report when no valid rows remain. Clear errors on workbook/worksheet replacement. 36 offline checks pass, including error footer handling.
+
 ## 0.3.5 — 2026-11-01
 
 Added a collapsed Instructions section beneath the panel title with Excel layout, direct-run behavior, results, scrolling, Stop and automatic downloads. Processing logic unchanged.
