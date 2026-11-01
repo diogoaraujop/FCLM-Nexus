@@ -1,0 +1,14 @@
+# Local workbooks and generated employee reports
+*.xlsx
+*.xls
+*.csv
+*.log
+fclm-nexus-results-*.txt
+fclm-nexus-log*.txt
+# Historical local-only reference
+reference/
+# Local tooling
+node_modules/
+.env
+.env.*
+.DS_Store
