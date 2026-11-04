@@ -2,7 +2,7 @@
 
 Tampermonkey tool for importing an Excel rota, updating unclassified FCLM segments, and downloading compact results automatically.
 
-**Version 0.4.0** · **47 offline checks passing**
+**Version 0.4.1** · **50 offline checks passing**
 
 [Install userscript](https://raw.githubusercontent.com/diogoaraujop/FCLM-Nexus/main/src/fclm-nexus.user.js) · [User guide](docs/USER_GUIDE.md) · [Testing](docs/TESTING.md) · [Changelog](docs/CHANGELOG.md)
 
@@ -72,3 +72,7 @@ Time is attributed to the station where the segment was first read, so a DIG1 se
 Open segments use the Run start time, capped at the selected report day's end and the returned report end when available. This prevents historical open segments accumulating days beyond their report. Open duration also contributes to Changed when its update is confirmed. Closed durations use their actual end minus start. Invalid timestamps are excluded and recorded as processing errors. Calculation uses milliseconds and rounds only the displayed sums.
 
 The footer is placed after processing/import errors and is included on completion, Stop and failure whenever processing began. It summarizes successfully retrieved and processed segments; unreadable records and work not reached after Stop are not included. The suite covers closed/open durations, duplicate rows, moved segments, independent employees, historic/summer day limits, confirmed versus unconfirmed updates, partial errors and footer ordering.
+
+## Report layout ? v0.4.1
+
+Displayed and downloaded results now start with site time totals, followed by Processing errors and Import errors when present, then employee/segment details. This supersedes earlier footer placement descriptions. The same report composer is used for the screen and download. Import-only reports also place errors first. Existing scroll-follow behavior is retained. 50 offline checks pass, including section ordering and empty-section omission.

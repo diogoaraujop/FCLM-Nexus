@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1 ? 2026-11-04
+
+Move time totals and processing/import error summaries to the top of screen and downloaded reports. Keep employee details below. Use one report composer without duplicate error sections. 50 offline checks pass.
+
 ## 0.4.0 ? 2026-11-04
 
 Add combined total and confirmed changed duration per source site in minutes and hours at the end of automatic logs. Count duplicate employee intervals once, including moved segments. Include open segments up to Run start, capped at report/day end. Preserve partial totals on failures and Stop. Add duration and footer regressions; 47 offline checks pass.

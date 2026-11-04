@@ -6,7 +6,7 @@ Run from the repository root with Node.js:
 
     node tests/run.cjs
 
-Expected: 47 checks passed and exit code 0. Coverage includes calendar/DST handling, eligibility, payload target, headers and roles, duplicate row ordering, direct processing, compact output, verification failures, authentication/cancellation paths, automatic downloads and scroll position preservation.
+Expected: 50 checks passed and exit code 0. Coverage includes calendar/DST handling, eligibility, payload target, headers and roles, duplicate row ordering, direct processing, compact output, verification failures, authentication/cancellation paths, automatic downloads and scroll position preservation.
 
 The suite uses synthetic values and mocked browser/SheetJS interfaces. It does not test the real Excel binary decoder, rendered portal CSS, browser download permissions, or live API compatibility.
 
@@ -27,7 +27,7 @@ Stop and disable the current script, restore a previously accepted version, then
 
 ## Validation record
 
-2026-11-01: 47 offline checks passed via the bundled Node runtime. No live FCLM reads or writes performed during validation. Browser rendering, actual Excel decoding and live acceptance remain pending. Record future checks with version/date/tester/results and unresolved issues. Use synthetic or sanitized data in committed fixtures.
+2026-11-01: 50 offline checks passed via the bundled Node runtime. No live FCLM reads or writes performed during validation. Browser rendering, actual Excel decoding and live acceptance remain pending. Record future checks with version/date/tester/results and unresolved issues. Use synthetic or sanitized data in committed fixtures.
 
 ## Import error handling — v0.3.6
 
@@ -46,3 +46,7 @@ Time is attributed to the station where the segment was first read, so a DIG1 se
 Open segments use the Run start time, capped at the selected report day's end and the returned report end when available. This prevents historical open segments accumulating days beyond their report. Open duration also contributes to Changed when its update is confirmed. Closed durations use their actual end minus start. Invalid timestamps are excluded and recorded as processing errors. Calculation uses milliseconds and rounds only the displayed sums.
 
 The footer is placed after processing/import errors and is included on completion, Stop and failure whenever processing began. It summarizes successfully retrieved and processed segments; unreadable records and work not reached after Stop are not included. The suite covers closed/open durations, duplicate rows, moved segments, independent employees, historic/summer day limits, confirmed versus unconfirmed updates, partial errors and footer ordering.
+
+## Report layout ? v0.4.1
+
+Displayed and downloaded results now start with site time totals, followed by Processing errors and Import errors when present, then employee/segment details. This supersedes earlier footer placement descriptions. The same report composer is used for the screen and download. Import-only reports also place errors first. Existing scroll-follow behavior is retained. 50 offline checks pass, including section ordering and empty-section omission.
