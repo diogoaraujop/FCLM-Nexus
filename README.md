@@ -2,7 +2,7 @@
 
 Tampermonkey tool for importing an Excel rota, updating unclassified FCLM segments, and downloading compact results automatically.
 
-**Version 0.4.2** · **52 offline checks passing**
+**Version 0.4.3** · **55 offline checks passing**
 
 [Install userscript](https://raw.githubusercontent.com/diogoaraujop/FCLM-Nexus/main/src/fclm-nexus.user.js) · [User guide](docs/USER_GUIDE.md) · [Testing](docs/TESTING.md) · [Changelog](docs/CHANGELOG.md)
 
@@ -75,8 +75,12 @@ The footer is placed after processing/import errors and is included on completio
 
 ## Report layout ? v0.4.1
 
-Displayed and downloaded results now start with site time totals, followed by Processing errors and Import errors when present, then employee/segment details. This supersedes earlier footer placement descriptions. The same report composer is used for the screen and download. Import-only reports also place errors first. Existing scroll-follow behavior is retained. 52 offline checks pass, including section ordering and empty-section omission.
+Displayed and downloaded results now start with site time totals, followed by Processing errors and Import errors when present, then employee/segment details. This supersedes earlier footer placement descriptions. The same report composer is used for the screen and download. Import-only reports also place errors first. Existing scroll-follow behavior is retained. 55 offline checks pass, including section ordering and empty-section omission.
 
 ## Log filenames ? v0.4.2
 
 The date portion of each downloaded log is the selected rota date, not the current calendar date. A UTC clock-time suffix with milliseconds distinguishes runs. For rota date 2026-11-02, a filename is fclm-nexus-results-2026-11-02T12-34-56-789Z.txt. This applies to normal, failed, stopped and import-only downloads. Earlier full-current-timestamp filename descriptions are superseded.
+
+## Report header and dividers ? v0.4.3
+
+Reports begin with FCLM Nexus Report, the selected rota date and the run start date/time in Europe/London (GMT/BST). The run date/time is captured once at Run start. TIME TOTALS follows immediately, showing unique SAs and total/confirmed changed durations for each site. An SA is counted once per attributed site if at least one valid timed segment was found. Duplicate rows and migrated segments do not inflate counts; an SA with distinct original segments at both sites can appear in both counts. ERRORS separates processing/import errors when present. CHANGES AND SEGMENT RESULTS separates all employee/segment details. This order applies to displayed and automatically downloaded reports. Import-only downloads use their import-report creation time.

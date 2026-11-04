@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name FCLM Nexus
 // @namespace fclm-nexus
-// @version 0.4.2
+// @version 0.4.3
 // @require https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js
 // @match https://fclm-portal.amazon.com/reports/ppaTimeOnTask*
 // @grant none
@@ -49,7 +49,7 @@ function reportDayEnd(date){
  return Date.parse(next+'T00:00:00'+offset.slice(0,3)+':'+offset.slice(3));
 }
 function createTimeTotals(date,startedAt){
- const totals={DIG1:{totalMs:0,changedMs:0},NXU7:{totalMs:0,changedMs:0}},seen=new Map();
+ const totals={DIG1:{totalMs:0,changedMs:0,saCount:0},NXU7:{totalMs:0,changedMs:0,saCount:0}},seen=new Map(),employees={DIG1:new Set(),NXU7:new Set()};
  const dayEnd=reportDayEnd(date);
  return {
   totals,
@@ -62,14 +62,14 @@ function createTimeTotals(date,startedAt){
    // Attribute a repeated/moved segment to the station where it was first read.
    const id=JSON.stringify([String(employee.id),start,open?'OPEN':segment.endTime]);
    if(seen.has(id))return seen.get(id);
-   const record={station,duration:end-start,changed:false};seen.set(id,record);totals[station].totalMs+=record.duration;return record;
+   const record={station,duration:end-start,changed:false};seen.set(id,record);totals[station].totalMs+=record.duration;employees[station].add(String(employee.id));totals[station].saCount=employees[station].size;return record;
   },
   changed(record){if(!record.changed){totals[record.station].changedMs+=record.duration;record.changed=true;}}
  };
 }
 function formatTimeTotals(totals){
  const duration=ms=>(ms/60000).toFixed(2)+' minutes ('+(ms/3600000).toFixed(2)+' hours)';
- return ['\nTime totals by site (processed segments)',...['DIG1','NXU7'].flatMap(site=>[site+' — Total: '+duration(totals[site].totalMs),site+' — Changed: '+duration(totals[site].changedMs)])];
+ return ['\nTime totals by site (processed segments)',...['DIG1','NXU7'].flatMap(site=>[site+' — SAs: '+(totals[site].saCount??0),site+' — Total: '+duration(totals[site].totalMs),site+' — Changed: '+duration(totals[site].changedMs)])];
 }
 
 async function processEmployees(people,date,request,say,isStopped=()=>false,visibleEmployees=[],timeOptions={}){
@@ -124,12 +124,19 @@ function visibleEmployees(){
 
 function logFilename(date,now=new Date()){range(date);return 'fclm-nexus-results-'+date+'T'+now.toISOString().slice(11).replace(/[:.]/g,'-')+'.txt';}
 
-function composeReport(lines,totals,processingErrors=[],importErrors=[]){
+function composeReport(lines,totals,processingErrors=[],importErrors=[],info){
  const sections=[];
- if(totals)sections.push(formatTimeTotals(totals).join('\n').trim());
- if(processingErrors.length)sections.push('Processing errors ('+processingErrors.length+')\n'+processingErrors.join('\n'));
- if(importErrors.length)sections.push('Import errors ('+importErrors.length+')\n'+importErrors.join('\n'));
- const details=lines.join('\n').trim();if(details)sections.push(details);
+ if(info){
+  const rota=info.rotaDate.split('-').reverse().join('/');
+  const run=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23',timeZoneName:'short'}).format(new Date(info.startedAt));
+  sections.push('FCLM Nexus Report\nRota date: '+rota+'\nRun date/time: '+run);
+ }
+ if(totals)sections.push('========== TIME TOTALS ==========\n'+formatTimeTotals(totals).join('\n').trim());
+ const errors=[];
+ if(processingErrors.length)errors.push('Processing errors ('+processingErrors.length+')\n'+processingErrors.join('\n'));
+ if(importErrors.length)errors.push('Import errors ('+importErrors.length+')\n'+importErrors.join('\n'));
+ if(errors.length)sections.push('========== ERRORS ==========\n'+errors.join('\n\n'));
+ const details=lines.join('\n').trim();if(details)sections.push('========== CHANGES AND SEGMENT RESULTS ==========\n'+details);
  return sections.join('\n\n');
 }
 
@@ -168,12 +175,12 @@ function placeLauncher(){
  if(anchor)anchor.after(launcher);else bar.append(launcher);
 }
 placeLauncher();new MutationObserver(placeLauncher).observe(document.body,{childList:true,subtree:true});
-let busy=false,stopped=false,controller,logs=[],people=[],workbook=null,importErrors=[],processingErrors=[],siteTimes;
-function reportText(){return composeReport(logs,siteTimes,processingErrors,importErrors);}
+let busy=false,stopped=false,controller,logs=[],people=[],workbook=null,importErrors=[],processingErrors=[],siteTimes,reportInfo;
+function reportText(){return composeReport(logs,siteTimes,processingErrors,importErrors,reportInfo);}
 function refreshReport(){renderReport($('log'),reportText());}
 function say(message){logs.push(message);refreshReport();}
-function clearImport(){people=[];importErrors=[];processingErrors=[];siteTimes=undefined;$('run').disabled=true;}
-function selectSheet(){clearImport();logs=[];$('log').textContent='';try{people=workbookRows(workbook,$('sheet').value,XLSX);importErrors=people.errors||[];$('status').textContent=people.length+' rota rows loaded'+(importErrors.length?' · '+importErrors.length+' rows skipped':'');$('run').disabled=!people.length;if(!people.length){say('No valid employee rows.');downloadResults();}}catch(error){$('status').textContent=error.message;}}
+function clearImport(){people=[];importErrors=[];processingErrors=[];siteTimes=undefined;reportInfo=undefined;$('run').disabled=true;}
+function selectSheet(){clearImport();logs=[];$('log').textContent='';try{people=workbookRows(workbook,$('sheet').value,XLSX);importErrors=people.errors||[];$('status').textContent=people.length+' rota rows loaded'+(importErrors.length?' · '+importErrors.length+' rows skipped':'');$('run').disabled=!people.length;if(!people.length){reportInfo={rotaDate:$('date').value,startedAt:Date.now()};say('No valid employee rows.');downloadResults();}}catch(error){$('status').textContent=error.message;}}
 $('import').onclick=()=>{if(!busy){$('file').value='';$('file').click();}};
 $('file').onchange=async()=>{
  const file=$('file').files[0];if(!file||busy)return;clearImport();workbook=null;$('sheet').replaceChildren();$('sheet-label').hidden=true;
@@ -205,14 +212,15 @@ async function request(payload,write=false){
 $('stop').onclick=()=>{stopped=true;controller?.abort();say('Stop requested.');};
 $('run').onclick=async()=>{
  if(busy||!people.length)return;busy=true;stopped=false;logs=[];processingErrors=[];siteTimes=undefined;$('log').textContent='';
+ reportInfo={rotaDate:$('date').value,startedAt:Date.now()};
  for(const id of ['run','import','sheet','date'])$(id).disabled=true;
- try{await processEmployees(people,$('date').value,request,say,()=>stopped,visibleEmployees(),{startedAt:Date.now(),onTotals:value=>{siteTimes=value;},onErrors:value=>{processingErrors=value;}});}
+ try{await processEmployees(people,$('date').value,request,say,()=>stopped,visibleEmployees(),{startedAt:reportInfo.startedAt,onTotals:value=>{siteTimes=value;},onErrors:value=>{processingErrors=value;}});}
  catch(error){say((stopped?'Stopped: ':'Failed: ')+error.message);}
  finally{refreshReport();busy=false;for(const id of ['import','sheet','date'])$(id).disabled=false;$('run').disabled=!people.length;try{downloadResults();}catch(error){say('Automatic download failed: '+error.message);}}
 };
 function downloadResults(){
  const url=URL.createObjectURL(new Blob([reportText()],{type:'text/plain;charset=utf-8'}));
- const link=document.createElement('a');link.href=url;link.download=logFilename($('date').value);link.hidden=true;
+ const link=document.createElement('a');link.href=url;link.download=logFilename(reportInfo?.rotaDate||$('date').value);link.hidden=true;
  document.body.append(link);
  try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
 }

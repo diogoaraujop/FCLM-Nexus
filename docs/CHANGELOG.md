@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.3 ? 2026-11-04
+
+Add report title, selected rota date and frozen London run timestamp. Show unique SA counts per attributed site. Add TIME TOTALS, ERRORS and CHANGES AND SEGMENT RESULTS dividers. Preserve summary-first ordering and date-based filenames. 55 offline checks pass.
+
 ## 0.4.2 ? 2026-11-04
 
 Name automatic log downloads using the selected rota date with a UTC clock-time suffix, instead of the current date. Added historical-date naming regression and validation; 52 offline checks pass.
