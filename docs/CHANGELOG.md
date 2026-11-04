@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2 ? 2026-11-04
+
+Name automatic log downloads using the selected rota date with a UTC clock-time suffix, instead of the current date. Added historical-date naming regression and validation; 52 offline checks pass.
+
 ## 0.4.1 ? 2026-11-04
 
 Move time totals and processing/import error summaries to the top of screen and downloaded reports. Keep employee details below. Use one report composer without duplicate error sections. 50 offline checks pass.

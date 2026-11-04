@@ -6,7 +6,7 @@ Run from the repository root with Node.js:
 
     node tests/run.cjs
 
-Expected: 50 checks passed and exit code 0. Coverage includes calendar/DST handling, eligibility, payload target, headers and roles, duplicate row ordering, direct processing, compact output, verification failures, authentication/cancellation paths, automatic downloads and scroll position preservation.
+Expected: 52 checks passed and exit code 0. Coverage includes calendar/DST handling, eligibility, payload target, headers and roles, duplicate row ordering, direct processing, compact output, verification failures, authentication/cancellation paths, automatic downloads and scroll position preservation.
 
 The suite uses synthetic values and mocked browser/SheetJS interfaces. It does not test the real Excel binary decoder, rendered portal CSS, browser download permissions, or live API compatibility.
 
@@ -27,7 +27,7 @@ Stop and disable the current script, restore a previously accepted version, then
 
 ## Validation record
 
-2026-11-01: 50 offline checks passed via the bundled Node runtime. No live FCLM reads or writes performed during validation. Browser rendering, actual Excel decoding and live acceptance remain pending. Record future checks with version/date/tester/results and unresolved issues. Use synthetic or sanitized data in committed fixtures.
+2026-11-01: 52 offline checks passed via the bundled Node runtime. No live FCLM reads or writes performed during validation. Browser rendering, actual Excel decoding and live acceptance remain pending. Record future checks with version/date/tester/results and unresolved issues. Use synthetic or sanitized data in committed fixtures.
 
 ## Import error handling — v0.3.6
 
@@ -49,4 +49,8 @@ The footer is placed after processing/import errors and is included on completio
 
 ## Report layout ? v0.4.1
 
-Displayed and downloaded results now start with site time totals, followed by Processing errors and Import errors when present, then employee/segment details. This supersedes earlier footer placement descriptions. The same report composer is used for the screen and download. Import-only reports also place errors first. Existing scroll-follow behavior is retained. 50 offline checks pass, including section ordering and empty-section omission.
+Displayed and downloaded results now start with site time totals, followed by Processing errors and Import errors when present, then employee/segment details. This supersedes earlier footer placement descriptions. The same report composer is used for the screen and download. Import-only reports also place errors first. Existing scroll-follow behavior is retained. 52 offline checks pass, including section ordering and empty-section omission.
+
+## Log filenames ? v0.4.2
+
+The date portion of each downloaded log is the selected rota date, not the current calendar date. A UTC clock-time suffix with milliseconds distinguishes runs. For rota date 2026-11-02, a filename is fclm-nexus-results-2026-11-02T12-34-56-789Z.txt. This applies to normal, failed, stopped and import-only downloads. Earlier full-current-timestamp filename descriptions are superseded.
