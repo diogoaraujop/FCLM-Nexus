@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0 ? 2026-11-04
+
+Add combined total and confirmed changed duration per source site in minutes and hours at the end of automatic logs. Count duplicate employee intervals once, including moved segments. Include open segments up to Run start, capped at report/day end. Preserve partial totals on failures and Stop. Add duration and footer regressions; 47 offline checks pass.
+
 ## 0.3.7 — 2026-11-01
 
 Catch retrieval/network/schema errors per employee/station and malformed data per segment. Continue processing other records; append Processing errors to the log footer. Preserve explicit authentication and Stop termination. Added regression for network failures and invalid timestamps; 37 checks pass.

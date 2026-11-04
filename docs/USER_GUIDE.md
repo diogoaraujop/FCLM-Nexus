@@ -51,3 +51,13 @@ On completion, failure, or Stop, the script requests a download named fclm-nexus
 ## Import error handling — v0.3.6
 
 Invalid populated employee IDs and unsupported nonblank roles are skipped without blocking valid rows. The loaded-row status shows the skipped error count. Each error includes its physical Excel row, affected column and reason. The Import errors section is appended after all run results, including failures and Stop, in the automatic timestamped download. Choosing another workbook or worksheet clears prior errors. If no valid rows remain, Run is disabled and an import error report downloads immediately. Blank rows, rows without IDs and blank assignment roles retain their existing handling.
+
+## Time totals by site ? v0.4.0
+
+The automatic log ends with combined Total and Changed duration for DIG1 and NXU7, in minutes and decimal hours (two decimal places). There are no per-employee time totals. All valid retrieved segments contribute to Total, regardless of role/eligibility. Only updates confirmed by the target-station verification contribute to Changed.
+
+Time is attributed to the station where the segment was first read, so a DIG1 segment moved to NXU7 is included under DIG1, rather than counted again under NXU7. Exact duplicates with the same employee ID and start/end interval are counted once across repeated rota rows, station reads and assignment changes. Different employees each contribute their own time. Open ends (null/empty/zero) share one duplicate identity.
+
+Open segments use the Run start time, capped at the selected report day's end and the returned report end when available. This prevents historical open segments accumulating days beyond their report. Open duration also contributes to Changed when its update is confirmed. Closed durations use their actual end minus start. Invalid timestamps are excluded and recorded as processing errors. Calculation uses milliseconds and rounds only the displayed sums.
+
+The footer is placed after processing/import errors and is included on completion, Stop and failure whenever processing began. It summarizes successfully retrieved and processed segments; unreadable records and work not reached after Stop are not included. The suite covers closed/open durations, duplicate rows, moved segments, independent employees, historic/summer day limits, confirmed versus unconfirmed updates, partial errors and footer ordering.

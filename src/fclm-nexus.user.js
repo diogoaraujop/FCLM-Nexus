@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name FCLM Nexus
 // @namespace fclm-nexus
-// @version 0.3.7
+// @version 0.4.0
 // @require https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js
 // @match https://fclm-portal.amazon.com/reports/ppaTimeOnTask*
 // @grant none
@@ -42,8 +42,39 @@ function body(e,date,source,s){const [start,end]=range(date);const p={startDate:
 function eligible(s){return s.processName===null;}
 function key(s){return JSON.stringify([s.startTime,s.endTime,s.processId,s.processName]);}
 
-async function processEmployees(people,date,request,say,isStopped=()=>false,visibleEmployees=[]){
+
+function reportDayEnd(date){
+ const next=range(date)[1].replaceAll('/','-');
+ const offset=stamp(Date.parse(next+'T00:00:00Z')).slice(-5);
+ return Date.parse(next+'T00:00:00'+offset.slice(0,3)+':'+offset.slice(3));
+}
+function createTimeTotals(date,startedAt){
+ const totals={DIG1:{totalMs:0,changedMs:0},NXU7:{totalMs:0,changedMs:0}},seen=new Map();
+ const dayEnd=reportDayEnd(date);
+ return {
+  totals,
+  include(employee,station,segment,reportEnd){
+   const start=segment.startTime,open=segment.endTime===null||segment.endTime===''||segment.endTime===0;
+   if(typeof start!=='number'||!Number.isFinite(start)||start<=0)throw Error('Invalid segment start timestamp');
+   let end=segment.endTime;
+   if(open)end=Math.min(startedAt,dayEnd,typeof reportEnd==='number'&&Number.isFinite(reportEnd)&&reportEnd>0?reportEnd:Infinity);
+   if(typeof end!=='number'||!Number.isFinite(end)||end<start)throw Error('Invalid segment end timestamp');
+   // Attribute a repeated/moved segment to the station where it was first read.
+   const id=JSON.stringify([String(employee.id),start,open?'OPEN':segment.endTime]);
+   if(seen.has(id))return seen.get(id);
+   const record={station,duration:end-start,changed:false};seen.set(id,record);totals[station].totalMs+=record.duration;return record;
+  },
+  changed(record){if(!record.changed){totals[record.station].changedMs+=record.duration;record.changed=true;}}
+ };
+}
+function formatTimeTotals(totals){
+ const duration=ms=>(ms/60000).toFixed(2)+' minutes ('+(ms/3600000).toFixed(2)+' hours)';
+ return ['\nTime totals by site (processed segments)',...['DIG1','NXU7'].flatMap(site=>[site+' — Total: '+duration(totals[site].totalMs),site+' — Changed: '+duration(totals[site].changedMs)])];
+}
+
+async function processEmployees(people,date,request,say,isStopped=()=>false,visibleEmployees=[],timeOptions={}){
  range(date);let total=0,updated=0,failed=0;const errors=[];
+ const time=createTimeTotals(date,timeOptions.startedAt??Date.now());
  function record(employee,station,detail){failed++;errors.push((employee.row?'Excel row '+employee.row+' · ':'')+(employee.name||employee.id)+' · '+station+' · '+detail);}
  const imported=new Set(people.map(person=>person.id));
  try{
@@ -51,8 +82,8 @@ async function processEmployees(people,date,request,say,isStopped=()=>false,visi
  for(const employee of people){
   if(isStopped())break;say('\n'+(employee.name||employee.id));let instance=0;
   for(const station of ['DIG1','NXU7']){
-   if(isStopped())break;let list;
-   try{list=segments(await request(body(employee,date,station),false));}
+   if(isStopped())break;let list,dataEnd;
+   try{const report=await request(body(employee,date,station),false);list=segments(report);dataEnd=report.endTime;}
    catch(error){record(employee,station,'read failed: '+error.message+' — skipped');say(station+' — read failed; skipped');if(error.fatal||isStopped())throw error;continue;}
    if(!list.length)say(station+': no segments');
    for(const segment of list){
@@ -60,6 +91,7 @@ async function processEmployees(people,date,request,say,isStopped=()=>false,visi
     try{
      if(!segment||typeof segment!=='object')throw Error('Invalid segment data');
      line+=' · '+(segment.processName??'None');
+     const timeRecord=time.include(employee,station,segment,dataEnd);
      if(!eligible(segment)){say(line);continue;}
      if(!employee.role){say(line+' — not updated: no rota role');continue;}
      if(!employee.process){say(line+' — not updated: unsupported role '+employee.role);continue;}
@@ -68,7 +100,7 @@ async function processEmployees(people,date,request,say,isStopped=()=>false,visi
      if(isStopped()){say(line+' — result unknown (stopped)');record(employee,station,'segment '+instance+': write result unknown after Stop');break;}
      const after=await request(body(employee,date,'NXU7'),false);
      const match=segments(after).some(current=>current&&current.startTime===segment.startTime && (current.endTime||'')===(segment.endTime||'') && String(current.processId)===employee.process);
-     if(match){updated++;say(line+' → '+employee.role+' (updated)');}
+     if(match){time.changed(timeRecord);updated++;say(line+' → '+employee.role+' (updated)');}
      else{record(employee,station,'segment '+instance+': update not confirmed');say(line+' — update not confirmed');}
     }catch(error){
      record(employee,station,'segment '+instance+': '+error.message+' — skipped; inspect any uncertain write before retrying');say(line+' — failed: '+error.message);
@@ -77,8 +109,8 @@ async function processEmployees(people,date,request,say,isStopped=()=>false,visi
    }
   }
  }
- }finally{if(errors.length){say('\nProcessing errors ('+errors.length+')');for(const error of errors)say(error);}}
- return {total,updated,failed};
+ }finally{if(errors.length){say('\nProcessing errors ('+errors.length+')');for(const error of errors)say(error);}if(timeOptions.onTotals)timeOptions.onTotals(time.totals);}
+ return {total,updated,failed,siteTimes:time.totals};
 }
 function visibleEmployees(){
  const out=new Map();if(!document.querySelectorAll)return [];
@@ -96,10 +128,10 @@ function renderReport(element,text){
  element.scrollTop=follow?element.scrollHeight:previousTop;
 }
 
-if(typeof module==='object'&&module.exports){module.exports={roles,range,stamp,segments,body,eligible,key,workbookRows,processEmployees,renderReport};return;}
+if(typeof module==='object'&&module.exports){module.exports={roles,range,stamp,segments,body,eligible,key,workbookRows,processEmployees,renderReport,createTimeTotals,formatTimeTotals};return;}
 if(document.getElementById('fclm-nexus'))return;
 const host=document.createElement('div');host.id='fclm-nexus';document.body.append(host);const ui=host.attachShadow({mode:'open'});
-ui.innerHTML='<style>:host{position:fixed;right:20px;top:155px;z-index:2147483646;font:14px Arial,sans-serif}[hidden]{display:none!important}section{box-sizing:border-box;background:white;color:#172333;padding:20px;width:min(580px,calc(100vw - 32px));max-height:calc(100vh - 175px);overflow:auto;border:1px solid #aab0b7;border-radius:5px;box-shadow:0 5px 25px #0003}h2{font-size:19px;margin:0 0 15px}.close{float:right}button,input,select{font:inherit;margin:5px 5px 5px 0;padding:7px;border:1px solid #a0a0ad;border-radius:4px;background:linear-gradient(#fff,#e7e7eb);color:#111}button{cursor:pointer}button:disabled{cursor:default;color:#777}label{display:block;margin:10px 0}#status{color:#526171}pre{max-height:250px;overflow:auto;white-space:pre-wrap;font:12px monospace}details{margin:0 0 14px;padding:10px;background:#f5f7f9;border:1px solid #d8dfe5;border-radius:4px}summary{cursor:pointer;font-weight:600}details ol{padding-left:20px;line-height:1.5;margin-bottom:8px}details p{line-height:1.4;margin:8px 0 0}</style><section id="panel" hidden aria-label="FCLM Nexus"><button id="close" class="close" aria-label="Close FCLM Nexus">×</button><h2>FCLM Nexus</h2><details id="instructions"><summary>Instructions · new users</summary><ol><li>Choose the rota date you want to process.</li><li>Click <strong>Import Excel file</strong> and select your .xlsx or .xls rota. Select the correct worksheet.</li><li>Use column B for names, D for employee IDs and H for assigned functions, such as Picking Kaizen. Keep an Employee ID header in D near the top of the sheet.</li><li>Click <strong>Run</strong> to apply updates immediately. The script checks DIG1 and NXU7 and assigns eligible unclassified segments to NXU7.</li><li>Read each numbered function under the employee name. <strong>(updated)</strong> means the assignment was confirmed. Missing roles, failures and unconfirmed updates show a short reason.</li></ol><p>Scroll up to pause automatic scrolling; return to the bottom to resume. <strong>Stop</strong> stops further processing; completed changes remain. Closing this panel does not stop a run.</p><p>Results download automatically when the run finishes, fails or stops. Look for <strong>fclm-nexus-results-[timestamp].txt</strong> in your browser download folder. To save directly to Downloads, set that as the browser download folder and turn off Ask where to save.</p></details><label>Rota date <input id="date" type="date"></label><button id="import">Import Excel file</button><input id="file" type="file" accept=".xlsx,.xls" hidden><label id="sheet-label" hidden>Worksheet <select id="sheet"></select></label><p id="status">No workbook imported.</p><button id="run" disabled>Run</button><button id="stop">Stop</button><pre id="log" aria-live="polite"></pre></section>';
+ui.innerHTML='<style>:host{position:fixed;right:20px;top:155px;z-index:2147483646;font:14px Arial,sans-serif}[hidden]{display:none!important}section{box-sizing:border-box;background:white;color:#172333;padding:20px;width:min(580px,calc(100vw - 32px));max-height:calc(100vh - 175px);overflow:auto;border:1px solid #aab0b7;border-radius:5px;box-shadow:0 5px 25px #0003}h2{font-size:19px;margin:0 0 15px}.close{float:right}button,input,select{font:inherit;margin:5px 5px 5px 0;padding:7px;border:1px solid #a0a0ad;border-radius:4px;background:linear-gradient(#fff,#e7e7eb);color:#111}button{cursor:pointer}button:disabled{cursor:default;color:#777}label{display:block;margin:10px 0}#status{color:#526171}pre{max-height:250px;overflow:auto;white-space:pre-wrap;font:12px monospace}details{margin:0 0 14px;padding:10px;background:#f5f7f9;border:1px solid #d8dfe5;border-radius:4px}summary{cursor:pointer;font-weight:600}details ol{padding-left:20px;line-height:1.5;margin-bottom:8px}details p{line-height:1.4;margin:8px 0 0}</style><section id="panel" hidden aria-label="FCLM Nexus"><button id="close" class="close" aria-label="Close FCLM Nexus">×</button><h2>FCLM Nexus</h2><details id="instructions"><summary>Instructions · new users</summary><ol><li>Choose the rota date you want to process.</li><li>Click <strong>Import Excel file</strong> and select your .xlsx or .xls rota. Select the correct worksheet.</li><li>Use column B for names, D for employee IDs and H for assigned functions, such as Picking Kaizen. Keep an Employee ID header in D near the top of the sheet.</li><li>Click <strong>Run</strong> to apply updates immediately. The script checks DIG1 and NXU7 and assigns eligible unclassified segments to NXU7.</li><li>Read each numbered function under the employee name. <strong>(updated)</strong> means the assignment was confirmed. Missing roles, failures and unconfirmed updates show a short reason.</li></ol><p>Scroll up to pause automatic scrolling; return to the bottom to resume. <strong>Stop</strong> stops further processing; completed changes remain. Closing this panel does not stop a run.</p><p>The end of the report shows total and confirmed changed time for DIG1 and NXU7 in minutes and hours. Duplicate segments count once; open segments are measured at run start, capped at the report day.</p><p>Results download automatically when the run finishes, fails or stops. Look for <strong>fclm-nexus-results-[timestamp].txt</strong> in your browser download folder. To save directly to Downloads, set that as the browser download folder and turn off Ask where to save.</p></details><label>Rota date <input id="date" type="date"></label><button id="import">Import Excel file</button><input id="file" type="file" accept=".xlsx,.xls" hidden><label id="sheet-label" hidden>Worksheet <select id="sheet"></select></label><p id="status">No workbook imported.</p><button id="run" disabled>Run</button><button id="stop">Stop</button><pre id="log" aria-live="polite"></pre></section>';
 const $=id=>ui.getElementById(id);$('date').value=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Dublin',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 // Use the native breadcrumb markup and styling instead of a floating imitation.
 const launcher=document.createElement('li');launcher.id='fclm-nexus-launcher';launcher.className='fcpn-head-item';
@@ -160,9 +192,10 @@ $('stop').onclick=()=>{stopped=true;controller?.abort();say('Stop requested.');}
 $('run').onclick=async()=>{
  if(busy||!people.length)return;busy=true;stopped=false;logs=[];$('log').textContent='';
  for(const id of ['run','import','sheet','date'])$(id).disabled=true;
- try{await processEmployees(people,$('date').value,request,say,()=>stopped,visibleEmployees());}
+ let siteTimes;
+ try{await processEmployees(people,$('date').value,request,say,()=>stopped,visibleEmployees(),{startedAt:Date.now(),onTotals:value=>{siteTimes=value;}});}
  catch(error){say((stopped?'Stopped: ':'Failed: ')+error.message);}
- finally{appendImportErrors();busy=false;for(const id of ['import','sheet','date'])$(id).disabled=false;$('run').disabled=!people.length;try{downloadResults();}catch(error){say('Automatic download failed: '+error.message);}}
+ finally{appendImportErrors();if(siteTimes)for(const line of formatTimeTotals(siteTimes))say(line);busy=false;for(const id of ['import','sheet','date'])$(id).disabled=false;$('run').disabled=!people.length;try{downloadResults();}catch(error){say('Automatic download failed: '+error.message);}}
 };
 function appendImportErrors(){if(importErrors.length){say('\nImport errors ('+importErrors.length+')');for(const error of importErrors)say(error);}}
 function downloadResults(){

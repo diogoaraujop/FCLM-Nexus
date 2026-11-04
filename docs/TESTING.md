@@ -6,7 +6,7 @@ Run from the repository root with Node.js:
 
     node tests/run.cjs
 
-Expected: 37 checks passed and exit code 0. Coverage includes calendar/DST handling, eligibility, payload target, headers and roles, duplicate row ordering, direct processing, compact output, verification failures, authentication/cancellation paths, automatic downloads and scroll position preservation.
+Expected: 47 checks passed and exit code 0. Coverage includes calendar/DST handling, eligibility, payload target, headers and roles, duplicate row ordering, direct processing, compact output, verification failures, authentication/cancellation paths, automatic downloads and scroll position preservation.
 
 The suite uses synthetic values and mocked browser/SheetJS interfaces. It does not test the real Excel binary decoder, rendered portal CSS, browser download permissions, or live API compatibility.
 
@@ -27,7 +27,7 @@ Stop and disable the current script, restore a previously accepted version, then
 
 ## Validation record
 
-2026-11-01: 37 offline checks passed via the bundled Node runtime. No live FCLM reads or writes performed during validation. Browser rendering, actual Excel decoding and live acceptance remain pending. Record future checks with version/date/tester/results and unresolved issues. Use synthetic or sanitized data in committed fixtures.
+2026-11-01: 47 offline checks passed via the bundled Node runtime. No live FCLM reads or writes performed during validation. Browser rendering, actual Excel decoding and live acceptance remain pending. Record future checks with version/date/tester/results and unresolved issues. Use synthetic or sanitized data in committed fixtures.
 
 ## Import error handling — v0.3.6
 
@@ -36,3 +36,13 @@ Invalid populated employee IDs and unsupported nonblank roles are skipped withou
 ## Processing errors — v0.3.7
 
 A network/read/schema error skips the affected employee/station request and continues with the next station and employee. Malformed segment data skips that segment. Error details are appended under Processing errors after the segment results, followed by any Import errors. There is no automatic retry. Explicit authentication failures and user Stop still terminate processing. A failed or unconfirmed write may have committed: inspect before retrying. Connection-wide failures cannot be fixed by skipping records.
+
+## Time totals by site ? v0.4.0
+
+The automatic log ends with combined Total and Changed duration for DIG1 and NXU7, in minutes and decimal hours (two decimal places). There are no per-employee time totals. All valid retrieved segments contribute to Total, regardless of role/eligibility. Only updates confirmed by the target-station verification contribute to Changed.
+
+Time is attributed to the station where the segment was first read, so a DIG1 segment moved to NXU7 is included under DIG1, rather than counted again under NXU7. Exact duplicates with the same employee ID and start/end interval are counted once across repeated rota rows, station reads and assignment changes. Different employees each contribute their own time. Open ends (null/empty/zero) share one duplicate identity.
+
+Open segments use the Run start time, capped at the selected report day's end and the returned report end when available. This prevents historical open segments accumulating days beyond their report. Open duration also contributes to Changed when its update is confirmed. Closed durations use their actual end minus start. Invalid timestamps are excluded and recorded as processing errors. Calculation uses milliseconds and rounds only the displayed sums.
+
+The footer is placed after processing/import errors and is included on completion, Stop and failure whenever processing began. It summarizes successfully retrieved and processed segments; unreadable records and work not reached after Stop are not included. The suite covers closed/open durations, duplicate rows, moved segments, independent employees, historic/summer day limits, confirmed versus unconfirmed updates, partial errors and footer ordering.
